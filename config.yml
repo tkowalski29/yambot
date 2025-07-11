@@ -38,3 +38,19 @@ commands:
       - name: description
         type: text
         required: true
+  - name: feedback
+    type: modal
+    webhook: "https://httpbin.org/post"
+    fields:
+      - name: name
+        type: text
+        required: true
+      - name: email
+        type: text
+        required: true
+      - name: rating
+        type: text
+        required: true
+      - name: comments
+        type: text
+        required: false
