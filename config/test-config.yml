@@ -1,0 +1,23 @@
+bot:
+  discord:
+    token: DISCORD_TOKEN
+
+commands:
+  - name: simple-test
+    type: slash
+    webhook: "https://httpbin.org/post"
+    fields:
+      - name: message
+        type: text
+        required: true
+  - name: advanced-test
+    type: modal
+    webhook: "https://httpbin.org/post"
+    fields:
+      - name: priority
+        type: select
+        options: ["High", "Medium", "Low"]
+        required: true
+      - name: description
+        type: text
+        required: true

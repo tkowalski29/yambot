@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  yambot:
+    build: .
+    volumes:
+      - ./config:/app/config
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+    restart: unless-stopped
