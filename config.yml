@@ -1,0 +1,23 @@
+bot:
+  discord:
+    token: DISCORD_TOKEN
+
+commands:
+  - name: cost
+    type: slash
+    webhook: "https://n8n.local/webhooks/submit-cost"
+    fields:
+      - name: company
+        type: select
+        options: ["Company A", "Company B"]
+      - name: pdf
+        type: attachment
+      - name: title
+        type: text
+      - name: amount
+        type: text
+      - name: payment
+        type: text
+      - name: month
+        type: select
+        options: ["January", "February"]
