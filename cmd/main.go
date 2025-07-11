@@ -1,11 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 
 	"yambot/pkg/config"
+	"yambot/pkg/discord"
 )
 
 func main() {
@@ -20,19 +20,13 @@ func main() {
 	}
 
 	log.Printf("Successfully loaded configuration with %d commands", len(cfg.Commands))
-	
-	fmt.Println("Available commands:")
-	for _, cmd := range cfg.GetCommands() {
-		fmt.Printf("- %s (type: %s)\n", cmd.Name, cmd.Type)
-		fmt.Printf("  webhook: %s\n", cmd.Webhook)
-		fmt.Printf("  fields:\n")
-		for _, field := range cmd.Fields {
-			fmt.Printf("    - %s (%s)", field.Name, field.Type)
-			if len(field.Options) > 0 {
-				fmt.Printf(" options: %v", field.Options)
-			}
-			fmt.Println()
-		}
-		fmt.Println()
+
+	bot, err := discord.NewBot(cfg)
+	if err != nil {
+		log.Fatalf("Failed to create Discord bot: %v", err)
+	}
+
+	if err := bot.Start(); err != nil {
+		log.Fatalf("Failed to start bot: %v", err)
 	}
 }
