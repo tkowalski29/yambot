@@ -48,7 +48,7 @@ func (b *Bot) handleModalSubmit(s *discordgo.Session, i *discordgo.InteractionCr
 
 func (b *Bot) extractFormData(data *discordgo.ModalSubmitInteractionData) map[string]string {
 	formData := make(map[string]string)
-	
+
 	for _, component := range data.Components {
 		if actionRow, ok := component.(*discordgo.ActionsRow); ok {
 			for _, comp := range actionRow.Components {
@@ -64,7 +64,7 @@ func (b *Bot) extractFormData(data *discordgo.ModalSubmitInteractionData) map[st
 
 func (b *Bot) createFormResponse(cmd *config.CommandSpec, formData map[string]string) string {
 	response := fmt.Sprintf("Form submitted for command: %s\n\n", cmd.Name)
-	
+
 	for _, field := range cmd.Fields {
 		if value, exists := formData[field.Name]; exists {
 			response += fmt.Sprintf("**%s**: %s\n", field.Name, value)
@@ -80,7 +80,7 @@ func (b *Bot) createFormResponse(cmd *config.CommandSpec, formData map[string]st
 
 func (b *Bot) createModalComponents(cmd *config.CommandSpec) []discordgo.MessageComponent {
 	var rows []discordgo.MessageComponent
-	
+
 	for _, field := range cmd.Fields {
 		if field.Type == "text" {
 			row := discordgo.ActionsRow{
@@ -96,6 +96,8 @@ func (b *Bot) createModalComponents(cmd *config.CommandSpec) []discordgo.Message
 				},
 			}
 			rows = append(rows, row)
+		} else {
+			log.Printf("Warning: Field type '%s' for field '%s' is not supported in Discord modals. Only 'text' fields are supported in modals.", field.Type, field.Name)
 		}
 	}
 
@@ -104,12 +106,32 @@ func (b *Bot) createModalComponents(cmd *config.CommandSpec) []discordgo.Message
 
 func (b *Bot) validateFormData(cmd *config.CommandSpec, formData map[string]string) error {
 	for _, field := range cmd.Fields {
-		if field.Type == "text" {
+		switch field.Type {
+		case "text":
+			if value, exists := formData[field.Name]; !exists || strings.TrimSpace(value) == "" {
+				return fmt.Errorf("field %s is required", field.Name)
+			}
+		case "select":
+			if value, exists := formData[field.Name]; !exists || strings.TrimSpace(value) == "" {
+				return fmt.Errorf("field %s is required", field.Name)
+			} else if len(field.Options) > 0 {
+				valid := false
+				for _, option := range field.Options {
+					if value == option {
+						valid = true
+						break
+					}
+				}
+				if !valid {
+					return fmt.Errorf("field %s has invalid value: %s", field.Name, value)
+				}
+			}
+		case "attachment":
 			if value, exists := formData[field.Name]; !exists || strings.TrimSpace(value) == "" {
 				return fmt.Errorf("field %s is required", field.Name)
 			}
 		}
 	}
-	
+
 	return nil
 }

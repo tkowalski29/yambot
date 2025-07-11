@@ -90,14 +90,30 @@ func (b *Bot) handleInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 
 func (b *Bot) handleSlashCommand(s *discordgo.Session, i *discordgo.InteractionCreate, cmd *config.CommandSpec) {
 	options := i.ApplicationCommandData().Options
-	
-	response := fmt.Sprintf("Received slash command: %s", cmd.Name)
-	
+
+	response := fmt.Sprintf("Received slash command: %s\n", cmd.Name)
+
 	if len(options) > 0 {
-		response += "\nOptions:"
+		response += "\nSubmitted data:"
 		for _, option := range options {
-			response += fmt.Sprintf("\n- %s: %v", option.Name, option.Value)
+			switch option.Type {
+			case discordgo.ApplicationCommandOptionString:
+				response += fmt.Sprintf("\n**%s**: %s", option.Name, option.StringValue())
+			case discordgo.ApplicationCommandOptionAttachment:
+				attachmentID := option.Value.(string)
+				if attachment, exists := i.ApplicationCommandData().Resolved.Attachments[attachmentID]; exists {
+					response += fmt.Sprintf("\n**%s**: %s (%s, %d bytes)", option.Name, attachment.Filename, attachment.ContentType, attachment.Size)
+				} else {
+					response += fmt.Sprintf("\n**%s**: %s", option.Name, attachmentID)
+				}
+			default:
+				response += fmt.Sprintf("\n**%s**: %v", option.Name, option.Value)
+			}
 		}
+	}
+
+	if cmd.Webhook != "" {
+		response += fmt.Sprintf("\n\nData will be sent to webhook: %s", cmd.Webhook)
 	}
 
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -114,7 +130,7 @@ func (b *Bot) handleSlashCommand(s *discordgo.Session, i *discordgo.InteractionC
 
 func (b *Bot) handleModalCommand(s *discordgo.Session, i *discordgo.InteractionCreate, cmd *config.CommandSpec) {
 	components := b.createModalComponents(cmd)
-	
+
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseModal,
 		Data: &discordgo.InteractionResponseData{
@@ -128,4 +144,3 @@ func (b *Bot) handleModalCommand(s *discordgo.Session, i *discordgo.InteractionC
 		log.Printf("Error responding with modal: %v", err)
 	}
 }
-
