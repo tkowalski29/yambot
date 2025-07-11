@@ -32,6 +32,13 @@ func (b *Bot) handleModalSubmit(s *discordgo.Session, i *discordgo.InteractionCr
 
 	modalData := i.ModalSubmitData()
 	formData := b.extractFormData(&modalData)
+	
+	if err := b.validateFormData(commandSpec, formData); err != nil {
+		response := fmt.Sprintf("❌ **Validation Error**\n\n%s\n\nPlease check your input and try again.", err.Error())
+		b.respondWithError(s, i, response)
+		return
+	}
+
 	response := b.createFormResponse(commandSpec, formData)
 
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -63,17 +70,20 @@ func (b *Bot) extractFormData(data *discordgo.ModalSubmitInteractionData) map[st
 }
 
 func (b *Bot) createFormResponse(cmd *config.CommandSpec, formData map[string]string) string {
-	response := fmt.Sprintf("Form submitted for command: %s\n\n", cmd.Name)
+	response := fmt.Sprintf("✅ **Form Successfully Submitted**\n\n📋 **Command**: %s\n\n", cmd.Name)
 
+	response += "**📝 Submitted Data:**\n"
 	for _, field := range cmd.Fields {
-		if value, exists := formData[field.Name]; exists {
-			response += fmt.Sprintf("**%s**: %s\n", field.Name, value)
+		if value, exists := formData[field.Name]; exists && strings.TrimSpace(value) != "" {
+			response += fmt.Sprintf("• **%s**: %s\n", strings.Title(field.Name), value)
 		}
 	}
 
 	if cmd.Webhook != "" {
-		response += fmt.Sprintf("\nData will be sent to webhook: %s", cmd.Webhook)
+		response += fmt.Sprintf("\n🔄 **Status**: Data will be sent to webhook: %s", cmd.Webhook)
 	}
+
+	response += "\n\n✨ Thank you for your submission!"
 
 	return response
 }
@@ -83,15 +93,25 @@ func (b *Bot) createModalComponents(cmd *config.CommandSpec) []discordgo.Message
 
 	for _, field := range cmd.Fields {
 		if field.Type == "text" {
+			style := discordgo.TextInputShort
+			maxLength := 1000
+			
+			if strings.Contains(strings.ToLower(field.Name), "description") || 
+			   strings.Contains(strings.ToLower(field.Name), "details") || 
+			   strings.Contains(strings.ToLower(field.Name), "comment") {
+				style = discordgo.TextInputParagraph
+				maxLength = 4000
+			}
+
 			row := discordgo.ActionsRow{
 				Components: []discordgo.MessageComponent{
 					discordgo.TextInput{
 						CustomID:    field.Name,
 						Label:       strings.Title(field.Name),
-						Style:       discordgo.TextInputShort,
+						Style:       style,
 						Placeholder: fmt.Sprintf("Enter %s", field.Name),
 						Required:    true,
-						MaxLength:   1000,
+						MaxLength:   maxLength,
 					},
 				},
 			}
@@ -105,15 +125,19 @@ func (b *Bot) createModalComponents(cmd *config.CommandSpec) []discordgo.Message
 }
 
 func (b *Bot) validateFormData(cmd *config.CommandSpec, formData map[string]string) error {
+	var errors []string
+
 	for _, field := range cmd.Fields {
 		switch field.Type {
 		case "text":
 			if value, exists := formData[field.Name]; !exists || strings.TrimSpace(value) == "" {
-				return fmt.Errorf("field %s is required", field.Name)
+				errors = append(errors, fmt.Sprintf("• **%s** is required", strings.Title(field.Name)))
+			} else if len(strings.TrimSpace(value)) < 1 {
+				errors = append(errors, fmt.Sprintf("• **%s** cannot be empty", strings.Title(field.Name)))
 			}
 		case "select":
 			if value, exists := formData[field.Name]; !exists || strings.TrimSpace(value) == "" {
-				return fmt.Errorf("field %s is required", field.Name)
+				errors = append(errors, fmt.Sprintf("• **%s** is required", strings.Title(field.Name)))
 			} else if len(field.Options) > 0 {
 				valid := false
 				for _, option := range field.Options {
@@ -123,15 +147,34 @@ func (b *Bot) validateFormData(cmd *config.CommandSpec, formData map[string]stri
 					}
 				}
 				if !valid {
-					return fmt.Errorf("field %s has invalid value: %s", field.Name, value)
+					availableOptions := strings.Join(field.Options, ", ")
+					errors = append(errors, fmt.Sprintf("• **%s** has invalid value '%s'. Available options: %s", strings.Title(field.Name), value, availableOptions))
 				}
 			}
 		case "attachment":
 			if value, exists := formData[field.Name]; !exists || strings.TrimSpace(value) == "" {
-				return fmt.Errorf("field %s is required", field.Name)
+				errors = append(errors, fmt.Sprintf("• **%s** is required", strings.Title(field.Name)))
 			}
 		}
 	}
 
+	if len(errors) > 0 {
+		return fmt.Errorf("Please fix the following issues:\n%s", strings.Join(errors, "\n"))
+	}
+
 	return nil
+}
+
+func (b *Bot) respondWithError(s *discordgo.Session, i *discordgo.InteractionCreate, message string) {
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: message,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+	if err != nil {
+		log.Printf("Error responding with error message: %v", err)
+	}
 }
