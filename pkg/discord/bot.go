@@ -61,37 +61,55 @@ func (b *Bot) Start() error {
 }
 
 func (b *Bot) handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	b.dispatchCommand(s, i)
+}
+
+func (b *Bot) dispatchCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if i.ApplicationCommandData().Name == "" {
+		log.Printf("Received interaction with empty command name")
 		return
 	}
 
 	commandName := i.ApplicationCommandData().Name
-	log.Printf("Received interaction for command: %s", commandName)
+	log.Printf("Dispatching command: %s", commandName)
 
-	var commandSpec *config.CommandSpec
-	for _, cmd := range b.Config.GetCommands() {
-		if cmd.Name == commandName {
-			commandSpec = &cmd
-			break
-		}
-	}
-
+	commandSpec := b.findCommandSpec(commandName)
 	if commandSpec == nil {
 		log.Printf("Unknown command: %s", commandName)
+		b.respondWithError(s, i, "Error: Unknown command")
 		return
 	}
 
-	switch commandSpec.Type {
-	case "slash":
-		b.handleSlashCommand(s, i, commandSpec)
-	case "modal":
-		b.handleModalCommand(s, i, commandSpec)
-	default:
-		log.Printf("Unknown command type: %s", commandSpec.Type)
+	log.Printf("Found command spec for %s (type: %s)", commandName, commandSpec.Type)
+
+	err := b.routeToHandler(s, i, commandSpec)
+	if err != nil {
+		log.Printf("Error handling command %s: %v", commandName, err)
+		b.respondWithError(s, i, "Error: Internal error processing command")
 	}
 }
 
-func (b *Bot) handleSlashCommand(s *discordgo.Session, i *discordgo.InteractionCreate, cmd *config.CommandSpec) {
+func (b *Bot) findCommandSpec(commandName string) *config.CommandSpec {
+	for _, cmd := range b.Config.GetCommands() {
+		if cmd.Name == commandName {
+			return &cmd
+		}
+	}
+	return nil
+}
+
+func (b *Bot) routeToHandler(s *discordgo.Session, i *discordgo.InteractionCreate, commandSpec *config.CommandSpec) error {
+	switch commandSpec.Type {
+	case "slash":
+		return b.handleSlashCommand(s, i, commandSpec)
+	case "modal":
+		return b.handleModalCommand(s, i, commandSpec)
+	default:
+		return fmt.Errorf("unknown command type: %s", commandSpec.Type)
+	}
+}
+
+func (b *Bot) handleSlashCommand(s *discordgo.Session, i *discordgo.InteractionCreate, cmd *config.CommandSpec) error {
 	options := i.ApplicationCommandData().Options
 
 	response := fmt.Sprintf("Received slash command: %s\n", cmd.Name)
@@ -127,11 +145,13 @@ func (b *Bot) handleSlashCommand(s *discordgo.Session, i *discordgo.InteractionC
 	})
 
 	if err != nil {
-		log.Printf("Error responding to interaction: %v", err)
+		return fmt.Errorf("error responding to slash command interaction: %w", err)
 	}
+
+	return nil
 }
 
-func (b *Bot) handleModalCommand(s *discordgo.Session, i *discordgo.InteractionCreate, cmd *config.CommandSpec) {
+func (b *Bot) handleModalCommand(s *discordgo.Session, i *discordgo.InteractionCreate, cmd *config.CommandSpec) error {
 	components := b.createModalComponents(cmd)
 
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -144,8 +164,10 @@ func (b *Bot) handleModalCommand(s *discordgo.Session, i *discordgo.InteractionC
 	})
 
 	if err != nil {
-		log.Printf("Error responding with modal: %v", err)
+		return fmt.Errorf("error responding with modal: %w", err)
 	}
+
+	return nil
 }
 
 func (b *Bot) fetchRemoteOptions(webhookURL string) ([]config.RemoteOption, error) {
@@ -174,11 +196,11 @@ func (b *Bot) fetchRemoteOptions(webhookURL string) ([]config.RemoteOption, erro
 	}
 
 	var options []config.RemoteOption
-	
+
 	// Try to decode as expected format first
 	if err := json.NewDecoder(resp.Body).Decode(&options); err != nil {
 		log.Printf("Failed to decode as RemoteOption array, trying alternative formats: %v", err)
-		
+
 		// Reset response body for another attempt
 		resp.Body.Close()
 		resp, err = client.Do(req)
@@ -186,20 +208,20 @@ func (b *Bot) fetchRemoteOptions(webhookURL string) ([]config.RemoteOption, erro
 			return nil, fmt.Errorf("failed to re-fetch remote options")
 		}
 		defer resp.Body.Close()
-		
+
 		// Try to decode as generic array of objects
 		var genericOptions []map[string]interface{}
 		if err := json.NewDecoder(resp.Body).Decode(&genericOptions); err != nil {
 			log.Printf("Failed to decode as generic array: %v", err)
 			return nil, fmt.Errorf("failed to decode response")
 		}
-		
+
 		// Convert to RemoteOption format
 		options = make([]config.RemoteOption, 0, len(genericOptions))
 		for _, item := range genericOptions {
 			label := ""
 			value := ""
-			
+
 			// Try common field names
 			if name, ok := item["name"].(string); ok {
 				label = name
@@ -211,7 +233,7 @@ func (b *Bot) fetchRemoteOptions(webhookURL string) ([]config.RemoteOption, erro
 				label = fmt.Sprintf("ID: %v", id)
 				value = fmt.Sprintf("%v", id)
 			}
-			
+
 			if label != "" && value != "" {
 				options = append(options, config.RemoteOption{
 					Label: label,
