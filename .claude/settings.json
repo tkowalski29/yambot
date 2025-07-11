@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go mod init:*)",
+      "Bash(go mod:*)",
+      "Bash(go install:*)",
+      "Bash(go get:*)",
+      "Bash(go build:*)",
+      "Bash(go run:*)",
+      "Bash(go vet:*)",
+      "Bash(gofmt:*)",
+      "Bash(templ generate:*)",
+      "Bash(./bin/claude-manager:*)",
+      "Bash(./claude-manager)",
+      "",
+      "Bash(mkdir:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(kill:*)",
+      "Bash(pkill:*)",
+      "Bash(true)",
+      "Bash(screen:*)",
+      "Bash(rg:*)",
+      "Bash(curl:*)",
+      "Bash(find:*)",
+      "Bash(timeout:*)",
+      "Bash(gtimeout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)",
+      "Bash(git checkout -b:*)",
+      "Bash(git push:*)",
+      "WebFetch(domain:github.com)",
+      "Edit(*)"
+    ],
+    "deny": []
+  }
+}
