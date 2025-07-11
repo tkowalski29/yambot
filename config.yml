@@ -10,14 +10,20 @@ commands:
       - name: company
         type: select
         options: ["Company A", "Company B"]
+        required: true
       - name: pdf
         type: attachment
+        required: true
       - name: title
         type: text
+        required: true
       - name: amount
         type: text
+        required: true
       - name: payment
         type: text
+        required: false
       - name: month
         type: select
         options: ["January", "February"]
+        required: true

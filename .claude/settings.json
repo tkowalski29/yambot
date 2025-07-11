@@ -9,6 +9,7 @@
       "Bash(go run:*)",
       "Bash(go vet:*)",
       "Bash(go test:*)",
+      "Bash(go fmt:*)",
       "Bash(gofmt:*)",
       "Bash(templ generate:*)",
       "Bash(./yambot)",
