@@ -90,6 +90,22 @@ func (b *Bot) createCommandOption(field config.FieldSpec) (*discordgo.Applicatio
 				})
 			}
 		}
+	case "remote_select":
+		optionType = discordgo.ApplicationCommandOptionString
+		if field.Webhook != "" {
+			remoteOptions, err := b.fetchRemoteOptions(field.Webhook)
+			if err != nil {
+				log.Printf("Failed to fetch remote options for field %s: %v", field.Name, err)
+				return nil, fmt.Errorf("failed to fetch remote options: %w", err)
+			}
+			choices = make([]*discordgo.ApplicationCommandOptionChoice, 0)
+			for _, option := range remoteOptions {
+				choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+					Name:  option.Label,
+					Value: option.Value,
+				})
+			}
+		}
 	case "attachment":
 		optionType = discordgo.ApplicationCommandOptionAttachment
 	default:

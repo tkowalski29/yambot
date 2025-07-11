@@ -136,6 +136,8 @@ func (b *Bot) createFormResponse(cmd *config.CommandSpec, formData map[string]st
 				icon = "📎"
 			case "select":
 				icon = "📋"
+			case "remote_select":
+				icon = "🌐"
 			case "text":
 				if strings.Contains(strings.ToLower(field.Name), "email") {
 					icon = "📧"
@@ -238,6 +240,27 @@ func (b *Bot) validateFormData(cmd *config.CommandSpec, formData map[string]stri
 				if !valid {
 					availableOptions := strings.Join(field.Options, ", ")
 					errors = append(errors, fmt.Sprintf("• **%s** has invalid value '%s'. Available options: %s", strings.Title(field.Name), value, availableOptions))
+				}
+			}
+		case "remote_select":
+			if field.Required && isEmpty {
+				errors = append(errors, fmt.Sprintf("• **%s** is required", strings.Title(field.Name)))
+			} else if exists && !isEmpty && field.Webhook != "" {
+				remoteOptions, err := b.fetchRemoteOptions(field.Webhook)
+				if err != nil {
+					log.Printf("Failed to fetch remote options for validation: %v", err)
+					errors = append(errors, fmt.Sprintf("• **%s** could not validate options (remote service unavailable)", strings.Title(field.Name)))
+				} else {
+					valid := false
+					for _, option := range remoteOptions {
+						if value == option.Value {
+							valid = true
+							break
+						}
+					}
+					if !valid {
+						errors = append(errors, fmt.Sprintf("• **%s** has invalid value '%s'", strings.Title(field.Name), value))
+					}
 				}
 			}
 		case "attachment":
