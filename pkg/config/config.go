@@ -32,7 +32,13 @@ type FieldSpec struct {
 	Name     string   `yaml:"name"`
 	Type     string   `yaml:"type"`
 	Options  []string `yaml:"options,omitempty"`
+	Webhook  string   `yaml:"webhook,omitempty"`
 	Required bool     `yaml:"required,omitempty"`
+}
+
+type RemoteOption struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
 }
 
 func LoadConfig(configPath string) (*Config, error) {
