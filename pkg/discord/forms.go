@@ -1,11 +1,15 @@
 package discord
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"yambot/pkg/config"
@@ -41,7 +45,12 @@ func (b *Bot) handleModalSubmit(s *discordgo.Session, i *discordgo.InteractionCr
 		return
 	}
 
-	response := b.createFormResponse(commandSpec, formData)
+	var webhookError error
+	if commandSpec.Webhook != "" {
+		webhookError = b.sendWebhook(commandSpec.Webhook, formData)
+	}
+
+	response := b.createFormResponse(commandSpec, formData, webhookError)
 
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -71,7 +80,42 @@ func (b *Bot) extractFormData(data *discordgo.ModalSubmitInteractionData) map[st
 	return formData
 }
 
-func (b *Bot) createFormResponse(cmd *config.CommandSpec, formData map[string]string) string {
+func (b *Bot) sendWebhook(webhookURL string, formData map[string]string) error {
+	payload, err := json.Marshal(formData)
+	if err != nil {
+		log.Printf("Error marshaling form data for webhook: %v", err)
+		return fmt.Errorf("failed to prepare webhook data")
+	}
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	req, err := http.NewRequest("POST", webhookURL, bytes.NewBuffer(payload))
+	if err != nil {
+		log.Printf("Error creating webhook request: %v", err)
+		return fmt.Errorf("failed to create webhook request")
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Error sending webhook to %s: %v", webhookURL, err)
+		return fmt.Errorf("failed to send webhook")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		log.Printf("Webhook returned non-success status %d for URL %s", resp.StatusCode, webhookURL)
+		return fmt.Errorf("webhook returned status %d", resp.StatusCode)
+	}
+
+	log.Printf("Successfully sent webhook to %s", webhookURL)
+	return nil
+}
+
+func (b *Bot) createFormResponse(cmd *config.CommandSpec, formData map[string]string, webhookError error) string {
 	response := fmt.Sprintf("✅ **Form Successfully Submitted**\n\n📋 **Command**: %s\n\n", strings.Title(cmd.Name))
 
 	response += "**📝 Submitted Data:**\n"
@@ -116,7 +160,11 @@ func (b *Bot) createFormResponse(cmd *config.CommandSpec, formData map[string]st
 	}
 
 	if cmd.Webhook != "" {
-		response += fmt.Sprintf("\n\n🔄 **Status**: Data will be sent to webhook\n🌐 **Endpoint**: %s", cmd.Webhook)
+		if webhookError != nil {
+			response += fmt.Sprintf("\n\n❌ **Webhook Status**: Failed to send data\n🌐 **Endpoint**: %s\n⚠️ **Error**: %s", cmd.Webhook, webhookError.Error())
+		} else {
+			response += fmt.Sprintf("\n\n✅ **Webhook Status**: Data sent successfully\n🌐 **Endpoint**: %s", cmd.Webhook)
+		}
 	}
 
 	response += "\n\n✨ **Thank you for your submission!**"

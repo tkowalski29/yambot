@@ -1,6 +1,7 @@
 package discord
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -209,7 +210,7 @@ func TestCreateFormResponse(t *testing.T) {
 		"amount": "100",
 	}
 
-	response := bot.createFormResponse(cmd, formData)
+	response := bot.createFormResponse(cmd, formData, nil)
 
 	if !strings.Contains(response, "Form Successfully Submitted") {
 		t.Error("Expected response to contain success message")
@@ -225,6 +226,38 @@ func TestCreateFormResponse(t *testing.T) {
 	}
 	if !strings.Contains(response, "https://example.com/webhook") {
 		t.Error("Expected response to contain webhook URL")
+	}
+	if !strings.Contains(response, "Data sent successfully") {
+		t.Error("Expected response to contain success status")
+	}
+}
+
+func TestCreateFormResponse_WebhookError(t *testing.T) {
+	bot := &Bot{}
+
+	cmd := &config.CommandSpec{
+		Name:    "cost",
+		Webhook: "https://example.com/webhook",
+		Fields: []config.FieldSpec{
+			{Name: "title", Type: "text", Required: true},
+		},
+	}
+
+	formData := map[string]string{
+		"title": "Test Title",
+	}
+
+	webhookError := fmt.Errorf("connection failed")
+	response := bot.createFormResponse(cmd, formData, webhookError)
+
+	if !strings.Contains(response, "Form Successfully Submitted") {
+		t.Error("Expected response to contain success message")
+	}
+	if !strings.Contains(response, "Failed to send data") {
+		t.Error("Expected response to contain webhook error status")
+	}
+	if !strings.Contains(response, "connection failed") {
+		t.Error("Expected response to contain webhook error message")
 	}
 }
 
