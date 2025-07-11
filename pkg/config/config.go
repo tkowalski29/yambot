@@ -29,9 +29,10 @@ type CommandSpec struct {
 }
 
 type FieldSpec struct {
-	Name    string   `yaml:"name"`
-	Type    string   `yaml:"type"`
-	Options []string `yaml:"options,omitempty"`
+	Name     string   `yaml:"name"`
+	Type     string   `yaml:"type"`
+	Options  []string `yaml:"options,omitempty"`
+	Required bool     `yaml:"required,omitempty"`
 }
 
 func LoadConfig(configPath string) (*Config, error) {
