@@ -1,0 +1,6 @@
+# LLM
+CLAUDE_*
+
+# History
+.history/
+.DS_Store
