@@ -16,6 +16,11 @@ import (
 )
 
 func (b *Bot) handleModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// Check if this is actually a modal submit interaction
+	if i.Type != discordgo.InteractionModalSubmit {
+		return
+	}
+	
 	if !strings.HasPrefix(i.ModalSubmitData().CustomID, "modal_") {
 		return
 	}

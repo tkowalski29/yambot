@@ -65,6 +65,11 @@ func (b *Bot) handleInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 }
 
 func (b *Bot) dispatchCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// Check if this is an application command interaction
+	if i.Type != discordgo.InteractionApplicationCommand {
+		return
+	}
+	
 	if i.ApplicationCommandData().Name == "" {
 		log.Printf("Received interaction with empty command name")
 		return
