@@ -132,3 +132,202 @@ func TestLoadConfigInvalidYAML(t *testing.T) {
 		t.Error("Expected error for invalid YAML, got nil")
 	}
 }
+
+func TestValidateTemplates(t *testing.T) {
+	tests := []struct {
+		name      string
+		config    *Config
+		hasError  bool
+		errorMsg  string
+	}{
+		{
+			name: "valid templates",
+			config: &Config{
+				Commands: []CommandSpec{
+					{
+						Name:           "test1",
+						ResponseFormat: "Hello {{ .Inputs.name }}!",
+					},
+					{
+						Name:           "test2",
+						ResponseFormat: "Status: {{ .webhook_response.status }}",
+					},
+				},
+			},
+			hasError: false,
+		},
+		{
+			name: "empty templates are valid",
+			config: &Config{
+				Commands: []CommandSpec{
+					{
+						Name:           "test1",
+						ResponseFormat: "",
+					},
+					{
+						Name: "test2",
+						// No ResponseFormat field
+					},
+				},
+			},
+			hasError: false,
+		},
+		{
+			name: "invalid template syntax",
+			config: &Config{
+				Commands: []CommandSpec{
+					{
+						Name:           "test1",
+						ResponseFormat: "Hello {{ .Inputs.name",
+					},
+				},
+			},
+			hasError: true,
+			errorMsg: "invalid template in command 'test1'",
+		},
+		{
+			name: "complex valid template",
+			config: &Config{
+				Commands: []CommandSpec{
+					{
+						Name: "test1",
+						ResponseFormat: `{{ if .webhook_response }}
+Status: {{ .webhook_response.status }}
+{{ if .webhook_response.data }}
+ID: {{ .webhook_response.data.id }}
+{{ end }}
+{{ else }}
+No webhook response
+{{ end }}`,
+					},
+				},
+			},
+			hasError: false,
+		},
+		{
+			name: "template with functions",
+			config: &Config{
+				Commands: []CommandSpec{
+					{
+						Name:           "test1",
+						ResponseFormat: "Name: {{ upper .Inputs.name }}, Email: {{ lower .Inputs.email }}",
+					},
+				},
+			},
+			hasError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.ValidateTemplates()
+			
+			if tt.hasError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+					return
+				}
+				if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
+					t.Errorf("expected error to contain %q, got %q", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestLoadConfigWithTemplateValidation(t *testing.T) {
+	tests := []struct {
+		name         string
+		configYAML   string
+		expectError  bool
+		errorContains string
+	}{
+		{
+			name: "valid config with template",
+			configYAML: `bot:
+  discord:
+    token: TEST_TOKEN
+
+commands:
+  - name: test-command
+    type: slash
+    webhook: "https://example.com/webhook"
+    response_format: "Hello {{ .Inputs.name }}!"
+    fields:
+      - name: name
+        type: text`,
+			expectError: false,
+		},
+		{
+			name: "invalid template in config",
+			configYAML: `bot:
+  discord:
+    token: TEST_TOKEN
+
+commands:
+  - name: test-command
+    type: slash
+    webhook: "https://example.com/webhook"
+    response_format: "Hello {{ .Inputs.name"
+    fields:
+      - name: name
+        type: text`,
+			expectError:   true,
+			errorContains: "template validation failed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpFile, err := os.CreateTemp("", "test-config-*.yml")
+			if err != nil {
+				t.Fatalf("Failed to create temp file: %v", err)
+			}
+			defer os.Remove(tmpFile.Name())
+
+			if _, err := tmpFile.WriteString(tt.configYAML); err != nil {
+				t.Fatalf("Failed to write to temp file: %v", err)
+			}
+			tmpFile.Close()
+
+			_, err = LoadConfig(tmpFile.Name())
+			
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+					return
+				}
+				if tt.errorContains != "" && !contains(err.Error(), tt.errorContains) {
+					t.Errorf("expected error to contain %q, got %q", tt.errorContains, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// Helper function to check if a string contains a substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && 
+		   (s == substr || 
+		    (len(s) > len(substr) && 
+		     (s[:len(substr)] == substr || 
+		      s[len(s)-len(substr):] == substr || 
+		      containsSubstring(s, substr))))
+}
+
+func containsSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

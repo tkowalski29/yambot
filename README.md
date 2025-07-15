@@ -174,3 +174,32 @@ commands:
 | `type` | string | Yes | Command type (slash or modal) |
 | `webhook` | string | Yes | Webhook URL to send form data |
 | `fields` | array | Yes | Array of field definitions |
+| `response_format` | string | No | Custom response template (see [Templating Documentation](./docs/templating.md)) |
+
+### Response Templating
+
+YamBot supports custom response templates using Go templates. You can customize how the bot responds to users after command execution.
+
+**Quick Example:**
+```yaml
+commands:
+  - name: cost
+    type: slash
+    webhook: "https://api.example.com/costs"
+    response_format: |
+      ✅ Zgłoszono koszt **{{ .Inputs.title }}** na kwotę **{{ .Inputs.amount }} PLN**
+      📎 Plik: {{ .Inputs.attachment.name }}
+      🔗 Status: {{ .WebhookResponse.Status }}
+    fields:
+      - name: title
+        type: text
+        required: true
+      - name: amount
+        type: text
+        required: true
+      - name: attachment
+        type: attachment
+        required: true
+```
+
+**For detailed templating documentation, see [docs/templating.md](./docs/templating.md)**
