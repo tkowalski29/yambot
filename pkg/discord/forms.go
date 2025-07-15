@@ -20,7 +20,7 @@ func (b *Bot) handleModalSubmit(s *discordgo.Session, i *discordgo.InteractionCr
 	if i.Type != discordgo.InteractionModalSubmit {
 		return
 	}
-	
+
 	if !strings.HasPrefix(i.ModalSubmitData().CustomID, "modal_") {
 		return
 	}
@@ -143,6 +143,8 @@ func (b *Bot) createFormResponse(cmd *config.CommandSpec, formData map[string]st
 				icon = "📋"
 			case "remote_select":
 				icon = "🌐"
+			case "textarea":
+				icon = "📄"
 			case "text":
 				if strings.Contains(strings.ToLower(field.Name), "email") {
 					icon = "📧"
@@ -183,11 +185,14 @@ func (b *Bot) createModalComponents(cmd *config.CommandSpec) []discordgo.Message
 	var rows []discordgo.MessageComponent
 
 	for _, field := range cmd.Fields {
-		if field.Type == "text" {
+		if field.Type == "text" || field.Type == "textarea" {
 			style := discordgo.TextInputShort
 			maxLength := 1000
 
-			if strings.Contains(strings.ToLower(field.Name), "description") ||
+			if field.Type == "textarea" {
+				style = discordgo.TextInputParagraph
+				maxLength = 4000
+			} else if strings.Contains(strings.ToLower(field.Name), "description") ||
 				strings.Contains(strings.ToLower(field.Name), "details") ||
 				strings.Contains(strings.ToLower(field.Name), "comment") {
 				style = discordgo.TextInputParagraph
@@ -208,7 +213,7 @@ func (b *Bot) createModalComponents(cmd *config.CommandSpec) []discordgo.Message
 			}
 			rows = append(rows, row)
 		} else {
-			log.Printf("Warning: Field type '%s' for field '%s' is not supported in Discord modals. Only 'text' fields are supported in modals.", field.Type, field.Name)
+			log.Printf("Warning: Field type '%s' for field '%s' is not supported in Discord modals. Only 'text' and 'textarea' fields are supported in modals.", field.Type, field.Name)
 		}
 	}
 
@@ -223,7 +228,7 @@ func (b *Bot) validateFormData(cmd *config.CommandSpec, formData map[string]stri
 		isEmpty := !exists || strings.TrimSpace(value) == ""
 
 		switch field.Type {
-		case "text":
+		case "text", "textarea":
 			if field.Required && isEmpty {
 				errors = append(errors, fmt.Sprintf("• **%s** is required", strings.Title(field.Name)))
 			} else if exists && !isEmpty {

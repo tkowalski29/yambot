@@ -36,6 +36,15 @@ Simple text input field.
   required: true
 ```
 
+#### textarea
+Multi-line text input field for longer content (descriptions, comments, feedback).
+
+```yaml
+- name: message
+  type: textarea
+  required: true
+```
+
 #### select
 Dropdown selection with predefined options.
 
@@ -149,11 +158,31 @@ commands:
         webhook: "https://api.company.com/departments"
         required: true
       - name: description
-        type: text
+        type: textarea
         required: true
       - name: attachment
         type: attachment
         required: false
+```
+
+#### Feedback Form with Textarea
+
+```yaml
+commands:
+  - name: feedback
+    type: modal
+    webhook: "https://webhook-url/feedback"
+    fields:
+      - name: subject
+        type: text
+        required: true
+      - name: message
+        type: textarea
+        required: true
+      - name: rating
+        type: select
+        options: ["1", "2", "3", "4", "5"]
+        required: true
 ```
 
 ### Field Properties
@@ -161,7 +190,7 @@ commands:
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `name` | string | Yes | Field identifier and label |
-| `type` | string | Yes | Field type (text, select, remote_select, attachment) |
+| `type` | string | Yes | Field type (text, textarea, select, remote_select, attachment) |
 | `required` | boolean | Yes | Whether the field is mandatory |
 | `options` | array | No | Available options for select fields |
 | `webhook` | string | No | Webhook URL for remote_select fields |
