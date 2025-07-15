@@ -69,7 +69,7 @@ func (b *Bot) dispatchCommand(s *discordgo.Session, i *discordgo.InteractionCrea
 	if i.Type != discordgo.InteractionApplicationCommand {
 		return
 	}
-	
+
 	if i.ApplicationCommandData().Name == "" {
 		log.Printf("Received interaction with empty command name")
 		return
