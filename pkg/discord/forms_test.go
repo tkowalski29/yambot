@@ -1,7 +1,6 @@
 package discord
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -247,8 +246,11 @@ func TestCreateFormResponse_WebhookError(t *testing.T) {
 		"title": "Test Title",
 	}
 
-	webhookError := fmt.Errorf("connection failed")
-	response := bot.createFormResponse(cmd, formData, webhookError)
+	webhookResp := &WebhookResponse{
+		Status: "error",
+		Error:  "connection failed",
+	}
+	response := bot.createFormResponse(cmd, formData, webhookResp)
 
 	if !strings.Contains(response, "Form Successfully Submitted") {
 		t.Error("Expected response to contain success message")

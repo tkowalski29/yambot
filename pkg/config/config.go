@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
+	"text/template"
 
 	"gopkg.in/yaml.v3"
 )
@@ -22,10 +24,11 @@ type DiscordConfig struct {
 }
 
 type CommandSpec struct {
-	Name    string      `yaml:"name"`
-	Type    string      `yaml:"type"`
-	Webhook string      `yaml:"webhook"`
-	Fields  []FieldSpec `yaml:"fields"`
+	Name           string      `yaml:"name"`
+	Type           string      `yaml:"type"`
+	Webhook        string      `yaml:"webhook"`
+	Fields         []FieldSpec `yaml:"fields"`
+	ResponseFormat string      `yaml:"response_format,omitempty"`
 }
 
 type FieldSpec struct {
@@ -58,6 +61,11 @@ func LoadConfig(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse YAML config: %w", err)
 	}
 
+	// Validate templates in commands
+	if err := config.ValidateTemplates(); err != nil {
+		return nil, fmt.Errorf("template validation failed: %w", err)
+	}
+
 	return &config, nil
 }
 
@@ -67,4 +75,24 @@ func (c *Config) GetCommands() []CommandSpec {
 
 func (c *Config) GetDiscordToken() string {
 	return c.Bot.Discord.Token
+}
+
+func (c *Config) ValidateTemplates() error {
+	for _, cmd := range c.Commands {
+		if cmd.ResponseFormat != "" {
+			// Create template with the same custom functions as in templating.go
+			_, err := template.New("validation").Funcs(template.FuncMap{
+				"upper": strings.ToUpper,
+				"lower": strings.ToLower,
+				"title": strings.Title,
+				"json": func(v interface{}) string {
+					return fmt.Sprintf("%v", v) // Simplified for validation
+				},
+			}).Parse(cmd.ResponseFormat)
+			if err != nil {
+				return fmt.Errorf("invalid template in command '%s': %w", cmd.Name, err)
+			}
+		}
+	}
+	return nil
 }

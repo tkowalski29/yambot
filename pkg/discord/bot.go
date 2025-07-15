@@ -1,6 +1,7 @@
 package discord
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -15,8 +16,9 @@ import (
 )
 
 type Bot struct {
-	Session *discordgo.Session
-	Config  *config.Config
+	Session   *discordgo.Session
+	Config    *config.Config
+	Templater *ResponseTemplater
 }
 
 func NewBot(cfg *config.Config) (*Bot, error) {
@@ -31,8 +33,9 @@ func NewBot(cfg *config.Config) (*Bot, error) {
 	}
 
 	return &Bot{
-		Session: session,
-		Config:  cfg,
+		Session:   session,
+		Config:    cfg,
+		Templater: NewResponseTemplater(),
 	}, nil
 }
 
@@ -117,29 +120,46 @@ func (b *Bot) routeToHandler(s *discordgo.Session, i *discordgo.InteractionCreat
 func (b *Bot) handleSlashCommand(s *discordgo.Session, i *discordgo.InteractionCreate, cmd *config.CommandSpec) error {
 	options := i.ApplicationCommandData().Options
 
-	response := fmt.Sprintf("Received slash command: %s\n", cmd.Name)
-
-	if len(options) > 0 {
-		response += "\nSubmitted data:"
-		for _, option := range options {
-			switch option.Type {
-			case discordgo.ApplicationCommandOptionString:
-				response += fmt.Sprintf("\n**%s**: %s", option.Name, option.StringValue())
-			case discordgo.ApplicationCommandOptionAttachment:
-				attachmentID := option.Value.(string)
-				if attachment, exists := i.ApplicationCommandData().Resolved.Attachments[attachmentID]; exists {
-					response += fmt.Sprintf("\n**%s**: %s (%s, %d bytes)", option.Name, attachment.Filename, attachment.ContentType, attachment.Size)
-				} else {
-					response += fmt.Sprintf("\n**%s**: %s", option.Name, attachmentID)
+	// Extract input data
+	inputs := make(map[string]interface{})
+	for _, option := range options {
+		switch option.Type {
+		case discordgo.ApplicationCommandOptionString:
+			inputs[option.Name] = option.StringValue()
+		case discordgo.ApplicationCommandOptionAttachment:
+			attachmentID := option.Value.(string)
+			if attachment, exists := i.ApplicationCommandData().Resolved.Attachments[attachmentID]; exists {
+				inputs[option.Name] = map[string]interface{}{
+					"name":         attachment.Filename,
+					"content_type": attachment.ContentType,
+					"size":         attachment.Size,
+					"url":          attachment.URL,
 				}
-			default:
-				response += fmt.Sprintf("\n**%s**: %v", option.Name, option.Value)
+			} else {
+				inputs[option.Name] = attachmentID
 			}
+		default:
+			inputs[option.Name] = option.Value
 		}
 	}
 
+	// Prepare template data
+	templateData := &TemplateData{
+		Inputs: inputs,
+	}
+
+	// Send webhook if specified
 	if cmd.Webhook != "" {
-		response += fmt.Sprintf("\n\nData will be sent to webhook: %s", cmd.Webhook)
+		webhookResp := b.sendSlashWebhook(cmd.Webhook, inputs)
+		templateData.WebhookResponse = webhookResp
+	}
+
+	// Generate response using template
+	var response string
+	if cmd.ResponseFormat != "" {
+		response = b.Templater.RenderWithFallback(cmd.ResponseFormat, templateData)
+	} else {
+		response = "✅ Komenda została przyjęta."
 	}
 
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -250,4 +270,64 @@ func (b *Bot) fetchRemoteOptions(webhookURL string) ([]config.RemoteOption, erro
 
 	log.Printf("Successfully fetched %d remote options from %s", len(options), webhookURL)
 	return options, nil
+}
+
+func (b *Bot) sendSlashWebhook(webhookURL string, inputs map[string]interface{}) *WebhookResponse {
+	payload, err := json.Marshal(inputs)
+	if err != nil {
+		log.Printf("Error marshaling inputs for webhook: %v", err)
+		return &WebhookResponse{
+			StatusCode: 0,
+			Status:     "error",
+			Error:      "Failed to prepare webhook data",
+		}
+	}
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	req, err := http.NewRequest("POST", webhookURL, bytes.NewBuffer(payload))
+	if err != nil {
+		log.Printf("Error creating webhook request: %v", err)
+		return &WebhookResponse{
+			StatusCode: 0,
+			Status:     "error",
+			Error:      "Failed to create webhook request",
+		}
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Error sending webhook to %s: %v", webhookURL, err)
+		return &WebhookResponse{
+			StatusCode: 0,
+			Status:     "error",
+			Error:      "Failed to send webhook",
+		}
+	}
+	defer resp.Body.Close()
+
+	webhookResponse := &WebhookResponse{
+		StatusCode: resp.StatusCode,
+		Status:     fmt.Sprintf("%d", resp.StatusCode),
+	}
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		webhookResponse.Status = "success"
+		
+		// Try to decode response body as JSON
+		var responseData map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&responseData); err == nil {
+			webhookResponse.Data = responseData
+		}
+	} else {
+		webhookResponse.Status = "error"
+		webhookResponse.Error = fmt.Sprintf("Webhook returned status %d", resp.StatusCode)
+	}
+
+	log.Printf("Webhook sent to %s, status: %s", webhookURL, webhookResponse.Status)
+	return webhookResponse
 }
