@@ -19,5 +19,19 @@ commands:
         options: ["High", "Medium", "Low"]
         required: true
       - name: description
+        type: textarea
+        required: true
+  - name: feedback-test
+    type: modal
+    webhook: "https://httpbin.org/post"
+    fields:
+      - name: subject
         type: text
+        required: true
+      - name: message
+        type: textarea
+        required: true
+      - name: rating
+        type: select
+        options: ["1", "2", "3", "4", "5"]
         required: true
