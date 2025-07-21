@@ -62,6 +62,11 @@ func (ws *WebhookService) SendSlashCommandWebhook(webhookURL string, commandName
 	formData := make(map[string]string)
 	formData["command"] = commandName
 
+	// Safely handle nil attachments
+	if attachments == nil {
+		attachments = make(map[string]*discordgo.MessageAttachment)
+	}
+
 	for _, option := range options {
 		switch option.Type {
 		case discordgo.ApplicationCommandOptionString:

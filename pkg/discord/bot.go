@@ -143,7 +143,16 @@ func (b *Bot) handleSlashCommand(s *discordgo.Session, i *discordgo.InteractionC
 
 	var webhookError error
 	if cmd.Webhook != "" {
-		webhookError = b.WebhookService.SendSlashCommandWebhook(cmd.Webhook, cmd.Name, options, i.ApplicationCommandData().Resolved.Attachments)
+		// Safely handle attachments - they might be nil
+		var attachments map[string]*discordgo.MessageAttachment
+		if i.ApplicationCommandData().Resolved != nil {
+			attachments = i.ApplicationCommandData().Resolved.Attachments
+		}
+		if attachments == nil {
+			attachments = make(map[string]*discordgo.MessageAttachment)
+		}
+
+		webhookError = b.WebhookService.SendSlashCommandWebhook(cmd.Webhook, cmd.Name, options, attachments)
 		if webhookError != nil {
 			response += fmt.Sprintf("\n\n❌ **Webhook Status**: Failed to send data\n🌐 **Endpoint**: %s\n⚠️ **Error**: %s", cmd.Webhook, webhookError.Error())
 		} else {
