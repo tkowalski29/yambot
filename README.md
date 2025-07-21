@@ -1,6 +1,6 @@
 # yambot
 
-A Discord bot that handles slash commands and modal forms with webhook integration.
+A Discord bot that handles slash commands and modal forms with webhook integration. The bot automatically sends form data and file attachments to configured webhook endpoints.
 
 ## Configuration
 
@@ -66,7 +66,7 @@ Dropdown selection with options loaded from a remote webhook.
 ```
 
 #### attachment
-File upload field.
+File upload field. **Note**: Attachment fields are only supported in slash commands, not in modal forms.
 
 ```yaml
 - name: document
@@ -77,7 +77,7 @@ File upload field.
 ### Command Types
 
 #### Slash Commands
-Commands that appear in Discord's slash command interface.
+Commands that appear in Discord's slash command interface. All field types are supported, including file attachments.
 
 ```yaml
 - name: simple-command
@@ -90,7 +90,7 @@ Commands that appear in Discord's slash command interface.
 ```
 
 #### Modal Forms
-Pop-up forms for more complex input.
+Pop-up forms for more complex input. **Note**: Only `text` and `textarea` field types are supported in modal forms due to Discord's limitations.
 
 ```yaml
 - name: feedback-form
@@ -203,3 +203,138 @@ commands:
 | `type` | string | Yes | Command type (slash or modal) |
 | `webhook` | string | Yes | Webhook URL to send form data |
 | `fields` | array | Yes | Array of field definitions |
+
+## Webhook Integration
+
+### Data Format
+
+The bot sends data to webhooks in JSON format with the following structure:
+
+#### For Slash Commands
+```json
+{
+  "command": "command-name",
+  "field1": "value1",
+  "field2": "value2",
+  "attachment_field": "File: filename.pdf (application/pdf, 1024000 bytes)",
+  "attachment_field_url": "https://cdn.discordapp.com/attachments/...",
+  "attachment_field_content_type": "application/pdf",
+  "attachment_field_size": "1024000"
+}
+```
+
+#### For Modal Forms
+```json
+{
+  "field1": "value1",
+  "field2": "value2"
+}
+```
+
+### Attachment Handling
+
+For slash commands with file attachments, the bot sends:
+- **File information**: Filename, content type, and size
+- **Download URL**: Direct link to the file on Discord's CDN
+- **Metadata**: Content type and file size for processing
+
+### Webhook Response
+
+The bot expects webhooks to return HTTP status codes:
+- **200-299**: Success (data processed successfully)
+- **Other codes**: Error (will be reported to the user)
+
+### Error Handling
+
+If a webhook fails to receive data, the bot will:
+1. Log the error for debugging
+2. Display an error message to the user
+3. Continue normal operation for other commands
+
+## Architecture
+
+### WebhookService
+
+The bot uses a dedicated `WebhookService` for handling all webhook operations:
+
+- **Centralized webhook management**: All webhook operations are handled by a single service
+- **Support for both command types**: Handles both slash commands and modal forms
+- **File attachment support**: Properly processes and sends file metadata for attachments
+- **Error handling**: Comprehensive error handling and logging
+- **Timeout management**: Configurable timeouts for webhook requests
+
+### File Structure
+
+```
+yambot/
+├── cmd/
+│   └── main.go              # Application entry point
+├── pkg/
+│   ├── config/
+│   │   ├── config.go        # Configuration management
+│   │   └── config_test.go   # Configuration tests
+│   └── discord/
+│       ├── bot.go           # Main bot logic
+│       ├── commands.go      # Command registration
+│       ├── forms.go         # Modal form handling
+│       ├── webhook.go       # Webhook service
+│       └── forms_test.go    # Form handling tests
+├── config.yml               # Configuration file
+├── go.mod                   # Go module file
+└── README.md               # This documentation
+```
+
+## Getting Started
+
+### Prerequisites
+
+- Go 1.19 or higher
+- Discord Bot Token
+- Webhook endpoints for receiving data
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd yambot
+```
+
+2. Install dependencies:
+```bash
+go mod download
+```
+
+3. Create a configuration file `config.yml` (see Configuration section above)
+
+4. Set your Discord bot token:
+```bash
+export DISCORD_TOKEN="your-discord-bot-token"
+```
+
+5. Build and run the bot:
+```bash
+go build -o yambot ./cmd
+./yambot
+```
+
+### Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DISCORD_TOKEN` | Discord bot token | Yes |
+
+### Testing
+
+Run the test suite:
+```bash
+go test ./...
+```
+
+### Docker
+
+Build and run with Docker:
+```bash
+docker build -t yambot .
+docker run -e DISCORD_TOKEN="your-token" -v $(pwd)/config.yml:/app/config.yml yambot
+```
