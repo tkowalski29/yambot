@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	configPath := "config/config.yml"
+	configPath := "cmd/config.yml"
 	if len(os.Args) > 1 {
 		configPath = os.Args[1]
 	}

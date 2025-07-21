@@ -10,13 +10,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"yambot/pkg/config"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 type Bot struct {
-	Session *discordgo.Session
-	Config  *config.Config
+	Session        *discordgo.Session
+	Config         *config.Config
+	WebhookService *WebhookService
 }
 
 func NewBot(cfg *config.Config) (*Bot, error) {
@@ -31,8 +33,9 @@ func NewBot(cfg *config.Config) (*Bot, error) {
 	}
 
 	return &Bot{
-		Session: session,
-		Config:  cfg,
+		Session:        session,
+		Config:         cfg,
+		WebhookService: NewWebhookService(),
 	}, nil
 }
 
@@ -138,8 +141,14 @@ func (b *Bot) handleSlashCommand(s *discordgo.Session, i *discordgo.InteractionC
 		}
 	}
 
+	var webhookError error
 	if cmd.Webhook != "" {
-		response += fmt.Sprintf("\n\nData will be sent to webhook: %s", cmd.Webhook)
+		webhookError = b.WebhookService.SendSlashCommandWebhook(cmd.Webhook, cmd.Name, options, i.ApplicationCommandData().Resolved.Attachments)
+		if webhookError != nil {
+			response += fmt.Sprintf("\n\n❌ **Webhook Status**: Failed to send data\n🌐 **Endpoint**: %s\n⚠️ **Error**: %s", cmd.Webhook, webhookError.Error())
+		} else {
+			response += fmt.Sprintf("\n\n✅ **Webhook Status**: Data sent successfully\n🌐 **Endpoint**: %s", cmd.Webhook)
+		}
 	}
 
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

@@ -1,0 +1,51 @@
+{
+    "go.useLanguageServer": true,
+    "go.lintTool": "golangci-lint",
+    "go.lintOnSave": "package",
+    "go.vetOnSave": "package",
+    "go.buildOnSave": "package",
+    "go.testOnSave": false,
+    "go.coverOnSave": false,
+    "go.formatTool": "goimports",
+    "go.gopath": "",
+    "go.goroot": "",
+    "go.toolsGopath": "",
+    "go.alternateTools": {},
+    "go.buildTags": "",
+    "go.testFlags": ["-v"],
+    "go.testTimeout": "30s",
+    "go.testEnvVars": {},
+    "go.testEnvFile": "${workspaceFolder}/.env",
+    "go.delveConfig": {
+        "dlvLoadConfig": {
+            "followPointers": true,
+            "maxVariableRecurse": 1,
+            "maxStringLen": 64,
+            "maxArrayValues": 64,
+            "maxStructFields": -1
+        },
+        "apiVersion": 2,
+        "showGlobalVariables": false
+    },
+    "go.gocodeAutoBuild": false,
+    "files.exclude": {
+        "**/vendor": true,
+        "**/node_modules": true,
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/CVS": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true
+    },
+    "search.exclude": {
+        "**/vendor": true,
+        "**/node_modules": true,
+        "**/bower_components": true,
+        "**/*.code-search": true
+    },
+    "files.watcherExclude": {
+        "**/vendor/**": true,
+        "**/node_modules/**": true
+    }
+} 

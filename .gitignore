@@ -8,4 +8,5 @@ CLAUDE_*
 # Runner
 yambot
 main
-config/config.yml
+config.yml
+__debug_bin*
