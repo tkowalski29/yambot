@@ -74,6 +74,15 @@ File upload field. **Note**: Attachment fields are only supported in slash comma
   required: true
 ```
 
+#### date
+Date input field for selecting dates.
+
+```yaml
+- name: deadline
+  type: date
+  required: true
+```
+
 ### Command Types
 
 #### Slash Commands
@@ -185,12 +194,35 @@ commands:
         required: true
 ```
 
+#### Task Form with Date Field
+
+```yaml
+commands:
+  - name: create-task
+    type: slash
+    webhook: "https://webhook-url/tasks"
+    fields:
+      - name: title
+        type: text
+        required: true
+      - name: description
+        type: textarea
+        required: true
+      - name: deadline
+        type: date
+        required: true
+      - name: priority
+        type: select
+        options: ["Low", "Medium", "High"]
+        required: true
+```
+
 ### Field Properties
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `name` | string | Yes | Field identifier and label |
-| `type` | string | Yes | Field type (text, textarea, select, remote_select, attachment) |
+| `type` | string | Yes | Field type (text, textarea, select, remote_select, attachment, date) |
 | `required` | boolean | Yes | Whether the field is mandatory |
 | `options` | array | No | Available options for select fields |
 | `webhook` | string | No | Webhook URL for remote_select fields |
